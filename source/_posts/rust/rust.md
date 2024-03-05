@@ -1,11 +1,11 @@
 ---
-title: rusting
-date: '2024/7/13 20:46:25'
-tag:
-  - os
-  - tmp
-categories:
+title: github page 抖动入坑
+date: 2024/03/05 16:05:02
+tag: []
+categories: [github page]
+
 ---
+
 
 # rustttt
 
