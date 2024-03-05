@@ -24,6 +24,19 @@ addr_{ch2} &\bmod 2^{k-1} = (addr_{fa} + 2^{k-1}) \bmod 2^{k-1} = addr_{fa} \bmo
 $$
 
 
+```c
+#include <stdio.h>
+
+#defind M 100;
+
+int main(){
+    printf("%d\n", M); //what aha wha
+    return ;
+}
+
+//comment
+
+```
 
 
 # 8. 并发bug和应对
