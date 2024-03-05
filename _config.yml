@@ -110,4 +110,5 @@ deploy:
 # depth: the depth of directory-tree you want to generate, should > 0
 auto_category:
  enable: true
- depth:
+ multiple: false
+ depth: 1
