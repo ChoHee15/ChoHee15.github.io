@@ -40,13 +40,16 @@ int main(){
 ```
 
 
-![Pasted image 20240228151426 | 50](http://img.chohee.top/blog/image-20240228202829022-03b273.png)
+![Pasted image 20240228151426 | 50](https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg)
 
 
-![Pasted image 20240228151426 | 100](http://img.chohee.top/blog/image-20240228202829022-03b273.png)
+![Pasted image 20240228151426 | 100](https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg)
 
 
-![Pasted image 20240228151426 | 200](http://img.chohee.top/blog/image-20240228202829022-03b273.png)
+![Pasted image 20240228151426 | 200](https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg)
+
+
+![Pasted image 20240228151426 | 300 x 300](https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg)
 
 
 # 8. 并发bug和应对
