@@ -1,9 +1,10 @@
 ---
 title: testtt
-date: 2024/7/13 20:46:25
-tag: [os, test]
-
-index_img: https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg
+date: '2024/7/13 20:46:25'
+tag:
+  - os
+  - test
+index_img: 'https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg'
 ---
 
 # TEST
