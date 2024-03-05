@@ -40,16 +40,22 @@ int main(){
 ```
 
 
-![Pasted image 20240228151426 | 50](https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg)
+![Pasted image 20240228151426|50](https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg)
 
 
-![Pasted image 20240228151426 | 100](https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg)
+![Pasted image 20240228151426|100](https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg)
 
 
-![Pasted image 20240228151426 | 200](https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg)
+<img src="https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg" width="100">
 
 
-![Pasted image 20240228151426 | 300 x 300](https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg)
+![box](https://cdn.biubiu001.com/p/ping/0/img/a6e36700798e218274cf36992759d4d8.jpeg)
+
+<style>
+	img[alt="box"]{
+		width:100px
+	}
+</style>
 
 
 # 8. 并发bug和应对
