@@ -243,6 +243,6 @@ For help, type "help".
 
 # 4. todo
 
-我尝试在``launch.json``添加``preLaunchTask``来完成一键启动，即让vscode全套执行先启动qemu+后启动gdb的过程，从而达到一键debug。然而我不知道如何操作``preLaunchTask``的同步，看上去vscode执行完启动qemu的指令后就立刻启动了gdb，它没有等待qemu进入连接状态后在启动gdb，即使我在指令后添加了``sleep 5``也没有效果。我暂时没有找到办法完成这一点。
+我尝试在``launch.json``添加``preLaunchTask``来完成一键启动，即让vscode全套执行先启动qemu+后启动gdb的过程，从而达到一键debug。然而我不知道如何操作``preLaunchTask``的同步，看上去vscode执行完启动qemu的指令后就立刻启动了gdb，它没有等待qemu进入连接状态后再启动gdb，即使我在指令后添加了``sleep 5``也没有效果。我暂时没有找到办法完成这一点。
 
 
