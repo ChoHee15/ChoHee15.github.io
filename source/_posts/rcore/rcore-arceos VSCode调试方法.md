@@ -103,7 +103,7 @@ Makefile中``debug``目标描述的行为其实是先运行qemu，这个qemu使�
                     "ignoreFailures": true
                 }
             ],
-            // arceos makefile中默认用的gdb-multiarch，由于我这用gdb-multiarch有点问题所以用的其他版本的gdb
+            // arceos makefile中默认用的gdb-multiarch，由于我这用gdb-multiarch有点问题所以随便找了个能用的其他版本，可以按需切换
             "miDebuggerPath": "riscv64-linux-gdb",
             // qemu启动gdb server的地址，通常为localhost:1234
             "miDebuggerServerAddress": "localhost:1234",
@@ -136,17 +136,113 @@ debug: build
 
 
 
-# 3. todo
+# 3. rust-gdb
 
-我尝试在``launch.json``添加``preLaunchTask``来完成一键启动，即让vscode全套执行先启动qemu + 后启动gdb的过程，从而达到一键debug。然而我不知道如何操作``preLaunchTask``的同步，看上去vscode执行完启动qemu的指令后就立刻启动了gdb，它没有等待qemu进入连接状态后在启动gdb，即使我在指令后添加了``sleep 5``也没有效果。我暂时没有找到办法完成这一点。
+参考[【笔记】rCore (RISC-V)：GDB 使用记录 | 苦瓜小仔 (zjp-cn.github.io)](https://zjp-cn.github.io/posts/rcore-gdb/#%E4%BD%BF%E7%94%A8-rust-gdb)
+
+使用``rust-gdb``可以更好地显示 Rust 的类型，不一定必须。
+
+通过环境变量启动（gdb版本可能不同，改成自己要用的就行）：
+```bash
+$ RUST_GDB=riscv64-linux-gdb rust-gdb
+```
+
+此时能看到启动后的target信息``This GDB was configured as "--host=x86_64-pc-linux-gnu --target=riscv64-buildroot-linux-musl".``
+
+```bash
+GNU gdb (GDB) 13.2
+Copyright (C) 2023 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+
+** This GDB was configured as "--host=x86_64-pc-linux-gnu --target=riscv64-buildroot-linux-musl". **
+
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+```
+这时候``set architecture``应该会提示有riscv的架构了。
+
+到VSCode部分，根据之前的``launch.json``进行部分修改，其中使用``"environment"``好像没用，于是就自己添加了环境变量``RUST_GDB=riscv64-linux-gdb``，把``"environment"``注释掉了。
+
+```json
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "qemu connect",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/apps/hv/hv_qemu-virt-riscv.elf",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            // gdb wrapper
+            // 用这个不知道为啥没成功，只好自己在~/.bashrc手动添加了。可以亲自试试有没有用
+            // "environment": [
+            //     // {"name" : "RUST_GDB", "value": "riscv64-linux-gdb"},
+            //     // {
+            //     //     "name": "RUST_GDB",
+            //     //     "value": "riscv64-linux-gdb"
+            //     // }
+            // ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "将反汇编风格设置为 Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                },
+                // {
+                //     "description": "Set architecture to riscv64",
+                //     "text": "-gdb-set architecture"
+                // },
+                {
+                    "description": "Set architecture to riscv64",
+                    "text": "-gdb-set architecture riscv:rv64"
+                }
+            ],
+            // arceos makefile中默认用的gdb-multiarch，由于我这用gdb-multiarch有点问题所以随便找了个能用的其他版本，可以按需切换
+            // "miDebuggerPath": "riscv64-linux-gdb",
+            // "miDebuggerPath": "RUST_GDB=riscv64-linux-gdb rust-gdb",
+            "miDebuggerPath": "rust-gdb",
+            // qemu启动gdb server的地址，通常为localhost:1234
+            "miDebuggerServerAddress": "localhost:1234",
+            // "serverStarted": "localhost:1234",
+            // 如果出现蜜汁问题可以打开gdb的log，在调试控制台查看更详细的信息
+            "logging": { "engineLogging": true },
+
+            // "preLaunchTask":{
+            //     "task": "arceos_debug",
+            //     "type": "shell"
+            // }
+            // "preLaunchTask": "arceos_debug"
+            
+        }
+    ]
+}
+```
 
 
 
 
+# 4. todo
 
-
-
-
-
+我尝试在``launch.json``添加``preLaunchTask``来完成一键启动，即让vscode全套执行先启动qemu+后启动gdb的过程，从而达到一键debug。然而我不知道如何操作``preLaunchTask``的同步，看上去vscode执行完启动qemu的指令后就立刻启动了gdb，它没有等待qemu进入连接状态后在启动gdb，即使我在指令后添加了``sleep 5``也没有效果。我暂时没有找到办法完成这一点。
 
 

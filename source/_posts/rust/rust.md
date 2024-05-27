@@ -9,4 +9,4 @@ categories: [github page]
 
 # rustttt
 
-should auto do
+should auto cata
