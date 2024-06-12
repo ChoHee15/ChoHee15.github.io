@@ -144,7 +144,7 @@ unsafe fn init_boot_page_table() {
 
 大致布局如下：
 
-![[_note_assets_/hv_f.png|_note_assets_/hv_f.png]]
+![hv_f.png](_note_assets_/hv_f.png)
 
 缺了mmio的一些映射，大体上应该差不多
 
@@ -280,7 +280,7 @@ dtc -I dts -O dtb -o linux_hart_x2.dtb linux_hart_x2.dts
 
 修改``dtb``后运行应该会报错：
 
-![[_note_assets_/sbi_error_start.png|_note_assets_/sbi_error_start.png]]
+![sbi_error_start.png](_note_assets_/sbi_error_start.png)
 
 ```bash
 [  0.157032 0 arceos_hv:66] vm run cpu0
@@ -381,7 +381,7 @@ vcpu在运行前需要检查这个状态，来决定是否可以运行，同时�
 
 下面继续运行的话，会出现新的未知sbi_call。
 
-![[_note_assets_/sbi_error_ipi.png|_note_assets_/sbi_error_ipi.png]]
+![sbi_error_ipi.png](_note_assets_/sbi_error_ipi.png)
 
 ```bash
 [  0.339238 0 hypercraft::arch::sbi:88] args: [1, 1, 0, 0, 0, 0, 0, 7557193]
@@ -420,7 +420,7 @@ vcpu在运行前需要检查这个状态，来决定是否可以运行，同时�
 
 ## g. success
 
-![[_note_assets_/success_2cpu.png|_note_assets_/success_2cpu.png]]
+![success_2cpu.png](_note_assets_/success_2cpu.png)
 
 ```bash
 [    0.057543] smp: Bringing up secondary CPUs ...
@@ -428,7 +428,7 @@ vcpu在运行前需要检查这个状态，来决定是否可以运行，同时�
 [    0.066028] smp: Brought up 1 node, 2 CPUs
 ```
 
-![[_note_assets_/success_2cpu_cpuinfo.png|_note_assets_/success_2cpu_cpuinfo.png]]
+![success_2cpu_cpuinfo.png](_note_assets_/success_2cpu_cpuinfo.png)
 
 
 
