@@ -144,7 +144,7 @@ unsafe fn init_boot_page_table() {
 
 大致布局如下：
 
-![hv_f](https://cdn.jsdelivr.net/gh/ChoHee15/image_base@main/image/image-20240613111451821-c8fc3a.png)
+![hv_f](https://image.chohee.top/image/image-20240613125851434-68b74e.png)
 
 缺了mmio的一些映射，大体上应该差不多
 
@@ -280,7 +280,7 @@ dtc -I dts -O dtb -o linux_hart_x2.dtb linux_hart_x2.dts
 
 修改``dtb``后运行应该会报错：
 
-![sbi_error_start](https://cdn.jsdelivr.net/gh/ChoHee15/image_base@main/image/image-20240613111451821-720f59.png)
+![sbi_error_start](https://image.chohee.top/image/image-20240613125851434-c15c49.png)
 
 ```bash
 [  0.157032 0 arceos_hv:66] vm run cpu0
@@ -381,7 +381,7 @@ vcpu在运行前需要检查这个状态，来决定是否可以运行，同时�
 
 下面继续运行的话，会出现新的未知sbi_call。
 
-![sbi_error_ipi](https://cdn.jsdelivr.net/gh/ChoHee15/image_base@main/image/image-20240613111451821-771d33.png)
+![sbi_error_ipi](https://image.chohee.top/image/image-20240613125851434-e01bd1.png)
 
 ```bash
 [  0.339238 0 hypercraft::arch::sbi:88] args: [1, 1, 0, 0, 0, 0, 0, 7557193]
@@ -420,7 +420,7 @@ vcpu在运行前需要检查这个状态，来决定是否可以运行，同时�
 
 ## g. success
 
-![success_2cpu](https://cdn.jsdelivr.net/gh/ChoHee15/image_base@main/image/image-20240613111451821-386cb7.png)
+![success_2cpu](https://image.chohee.top/image/image-20240613125851434-884375.png)
 
 ```bash
 [    0.057543] smp: Bringing up secondary CPUs ...
@@ -428,7 +428,7 @@ vcpu在运行前需要检查这个状态，来决定是否可以运行，同时�
 [    0.066028] smp: Brought up 1 node, 2 CPUs
 ```
 
-![success_2cpu_cpuinfo](https://cdn.jsdelivr.net/gh/ChoHee15/image_base@main/image/image-20240613111451821-6a3fb9.png)
+![success_2cpu_cpuinfo](https://image.chohee.top/image/image-20240613125851434-719382.png)
 
 
 
