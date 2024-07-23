@@ -13,13 +13,13 @@ share: "true"
 矩阵/向量/标量
 
 
-存储：绕不过的memory heriachy
+存储：绕不过的memory _hierarchy_
 
 
-面向芯片编程：
+面向芯片编程：更底层的控制能力
 
 
-统一抽象为local/global memory
+存储统一抽象为local/global memory
 
 
 
@@ -53,9 +53,6 @@ NHWC/NCHW：从后往前遍历，顺序不同
 
 ```c
 __global__ __aicore__ void func(...)
-
-
-
 ```
 
 
@@ -82,7 +79,7 @@ kernel_name<<<在几个核心运行, 来ctrl, stream异步任务队列>>>
 
 ### 开发
 
-算子类
+算子类包装
 
 
 
