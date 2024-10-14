@@ -73,8 +73,28 @@ qemu-system-riscv64 -cpu rv64,x-h=true -M virt -m 512M -nographic -bios /codes/o
 
 qemu-system-riscv64 -M virt -m 512M -nographic -bios /codes/opensbi/build/platform/generic/firmware/fw_jump.bin -kernel ./build/vmm.bin -initrd ./build/disk.img -append 'vmm.bootcmd="vfs mount initrd /;vfs run /boot.xscript;vfs cat /system/banner.txt"'
 
+qemu-system-riscv64 -M virt -m 512M -smp 2 -nographic -bios /codes/opensbi/build/platform/generic/firmware/fw_jump.bin -kernel ./build/vmm.bin -initrd ./build/disk.img -append 'vmm.bootcmd="vfs mount initrd /;vfs run /boot.xscript;vfs cat /system/banner.txt"'
+
+XVisor# guest kick guest0
+
+XVisor# vserial bind guest0/uart0
+
+[guest0/uart0] basic# autoexec
 
 
+qemu-system-riscv64 -M virt -m 512M -smp 1 -nographic -bios /codes/opensbi/build/platform/generic/firmware/fw_jump.bin -kernel ./build/vmm.bin -initrd ./build/disk.img -append 'vmm.bootcmd="vfs mount initrd /;vfs run /boot.xscript;vfs cat /system/banner.txt"' -drive file=/arceos_2024S/arceos/apps/hv/guest/linux/rootfs.img,if=none,id=drive0 -device virtio-blk-device,drive=drive0,id=virtioblk0
+
+
+qemu-system-riscv64 -M virt -m 512M -smp 1 -nographic -bios /codes/opensbi/build/platform/generic/firmware/fw_jump.bin -kernel ./build/vmm.bin -initrd ./build/disk.img -append 'root=/dev/vda vmm.bootcmd="vfs mount initrd /;vfs run /boot.xscript;vfs cat /system/banner.txt"' -drive file=/arceos_2024S/arceos/apps/hv/guest/linux/rootfs.img,if=none,id=drive0 -device virtio-blk-device,drive=drive0,id=virtioblk0
+
+
+"root=/dev/vda rw console=ttyS0,115200 earlycon=uart8250,mmio,0x10000000"
+# earlycon=uart8250使用8250串口作为启动早期串口，被映射到0x10000000
+
+
+qemu-system-riscv64 -M virt -m 512M -smp 2 -nographic -bios /codes/opensbi/build/platform/generic/firmware/fw_jump.bin -kernel ./build/vmm.bin -initrd ./build/disk.img -append 'root=/dev/vda vmm.bootcmd="vfs mount initrd /;vfs run /boot.xscript;vfs cat /system/banner.txt"' -drive file=/arceos_2024S/arceos/apps/hv/guest/linux/rootfs.img,if=none,id=drive0 -device virtio-blk-device,drive=drive0,id=virtioblk0 -s -S
+
+/qemu-9.0.0-rc1/build/qemu-system-riscv64 -M virt -m 512M -smp 2 -nographic -bios /codes/opensbi/build/platform/generic/firmware/fw_jump.bin -kernel ./build/vmm.bin -initrd ./build/disk.img -append 'root=/dev/vda vmm.bootcmd="vfs mount initrd /;vfs run /boot.xscript;vfs cat /system/banner.txt"' -drive file=/arceos_2024S/arceos/apps/hv/guest/linux/rootfs.img,if=none,id=drive0 -device virtio-blk-device,drive=drive0,id=virtioblk0
 
 
 
@@ -135,6 +155,22 @@ QEMU: Terminated
 ![[xvisor.assets/patch.png|xvisor.assets/patch.png]]
 
 
+
+# x. 复活
+
+会因无法读取/dev/ram设备启动失败。
+
+找了半天发现guest的启动参数默认在arch_board.c里写死了
+
+``root=/dev/ram rw console=ttyS0,115200 earlycon=uart8250,mmio,0x10000000``
+
+需要在vserial绑定后，用linux_cmdline命令修改。
+
+配合vdisk attach，可以用另一个磁盘镜像启动：
+
+https://github.com/xvisor/xvisor/issues/168
+
+nice的
 
 # 3. vscode debug
 
@@ -237,6 +273,362 @@ xvisor似乎对所有设备采用模拟操作？包括串口。在linux启动过
 >1. ``vcpu_irq_wfi_resume``相关。
 >
 >2. 若在二阶段页表中设置对设备的等值映射，相当于vm能够直接控制设备？
+
+
+
+
+# 5. wfi & ipi
+
+xvisor的设计中，wfi被设置为不可在虚拟机中直接执行。
+
+当hstatus.VTW=1 and mstatus.TW=0时，在vs mode下执行wfi会触发虚拟指令异常。
+
+此时若vcpu执行wfi，会退出虚拟机。vmm便可标记此vcpu处于wfi状态，并将其置于不可运行状态并调度走。
+
+当给vcpu assert irq时，若此vcpu处于wfi状态，便可清除其wfi标记，并将其重新置于可运行状态。
+
+
+
+当中断被首次assert到vcpu上后，会执行
+
+```rust
+vmm_manager_vcpu_hcpu_func(vcpu,
+                       VMM_VCPU_STATE_INTERRUPTIBLE,
+                       vcpu_irq_wfi_resume, NULL, FALSE);
+```
+
+其中会查看vcpu是否处于可中断状态，并获取此vcpu所在的物理cpu编号，形成cpu_mask
+
+```rust
+if (arch_atomic_read(&vcpu->state) & state_mask) {
+	cpu_mask = vmm_cpumask_of(vcpu->hcpu);
+}
+```
+
+最终会调用
+
+```rust
+vmm_smp_ipi_sync_call(cpu_mask, 0,
+                    manager_vcpu_hcpu_func,
+                    func, vcpu, data);
+==
+vmm_smp_ipi_sync_call(cpu_mask, 0,
+                    manager_vcpu_hcpu_func,
+                    vcpu_irq_wfi_resume, vcpu, data);
+```
+
+其中有逻辑：
+
+```rust
+for_each_cpu(c, dest) {
+	if (c == cpu) {
+		func(arg0, arg1, arg2); //若当前cpu就是目标cpu，则执行func
+	} else {
+		if (!vmm_cpu_online(c)) { // 否则让当前cpu向目标cpu发送ipigute？
+			continue;
+		}
+
+		ipic.src_cpu = cpu;
+		ipic.dst_cpu = c;
+		ipic.func = func;
+		ipic.arg0 = arg0;
+		ipic.arg1 = arg1;
+		ipic.arg2 = arg2;
+		smp_ipi_sync_submit(&per_cpu(ictl, c), &ipic);
+		vmm_cpumask_set_cpu(c, &trig_mask);
+		trig_count++;
+	}
+}
+```
+
+遍历目标cpu_mask中标记的每个cpu，若此cpu就是当前物理cpu，则直接执行func，即由``manager_vcpu_hcpu_func``包装的``vcpu_irq_wfi_resume``。
+
+若标记中的cpu不是当前物理cpu，则执行``smp_ipi_sync_submit``。
+
+其中会将ipi信息入队到目标物理cpu的队列中，并调用``arch_smp_ipi_trigger``，来引发目标物理cpu上的ipi：
+
+```rust
+while (!fifo_enqueue(ictlp->sync_fifo, ipic, FALSE) && try) {
+	arch_smp_ipi_trigger(vmm_cpumask_of(ipic->dst_cpu));
+	vmm_udelay(SMP_IPI_WAIT_UDELAY);
+	try--;
+}
+
+void arch_smp_ipi_trigger(const struct vmm_cpumask *dest)
+{
+	/* Raise IPI to other cores */
+	if (smp_ipi_available) {
+		vmm_host_irq_raise(smp_ipi_irq, dest);
+	}
+}
+
+int vmm_host_irq_raise(u32 hirq, const struct vmm_cpumask *dest) {
+	struct vmm_host_irq *irq;
+	
+	if (NULL == (irq = vmm_host_irq_get(hirq)))
+		return VMM_ENOTAVAIL;
+		
+	if (irq->chip && irq->chip->irq_raise) {
+		irq->chip->irq_raise(irq, dest);
+	}
+	return VMM_OK;
+}
+```
+
+其中irq_raise定义于``drivers/irqchip/irq-riscv-aclint-swi.c``中：
+
+```rust
+static struct vmm_host_irq_chip aclint_swi_irqchip = {
+	.name = "riscv-aclint-swi",
+	.irq_mask = aclint_swi_dummy,
+	.irq_unmask = aclint_swi_dummy,
+	.irq_raise = aclint_swi_raise
+};
+
+static void aclint_swi_raise(struct vmm_host_irq *d,
+			     const struct vmm_cpumask *mask) {
+	u32 cpu;
+	void *swi_reg;
+
+	for_each_cpu(cpu, mask) {
+		swi_reg = per_cpu(aclint_swi_reg, cpu);
+		vmm_writel(1, swi_reg);
+	}
+}
+
+```
+
+可见其会向aclint_swi_reg写入1。
+
+而aclint_swi_reg在``aclint_swi_init()``被初始化：
+
+```rust
+/* Map ACLINT SWI registers */
+rc = vmm_devtree_request_regmap(node, &va, 0, "RISC-V ACLINT SWI");
+...
+for_each_possible_cpu(cpu) {
+	vmm_smp_map_hwid(cpu, &thart_id);
+	if (thart_id != hart_id) {
+		continue;
+	}
+
+	per_cpu(aclint_swi_reg, cpu) =
+			(void *)(va + sizeof(u32) * i);
+	nr_cpus++;
+	break;
+}
+```
+
+其会建立aclint的物理地址与虚拟地址va间的映射，然后每个hart的软件中断寄存器拥有4B偏移，与aclint布局对应，详见aclint手册。
+
+
+当目标hart收到ipi后，进入软件中断处理，执行到``smp_ipi_handler``：
+
+```rust
+static vmm_irq_return_t smp_ipi_handler(int irq_no, void *dev) {
+	/* Call core code to handle IPI */
+	vmm_smp_ipi_exec();
+
+	return VMM_IRQ_HANDLED;
+}
+
+void vmm_smp_ipi_exec(void) {
+	struct smp_ipi_call ipic;
+	struct smp_ipi_ctrl *ictlp = &this_cpu(ictl);
+
+	/* Process Sync IPIs */
+	while (fifo_dequeue(ictlp->sync_fifo, &ipic)) {
+		if (ipic.func) {
+			ipic.func(ipic.arg0, ipic.arg1, ipic.arg2);
+		}
+	}
+
+	/* Signal IPI available event */
+	if (!fifo_isempty(ictlp->async_fifo)) {
+		vmm_completion_complete(&ictlp->async_avail);
+	}
+}
+```
+
+
+``vmm_smp_ipi_exec()``中会从当前物理cpu的队列中出队之前的ipi信息，并执行其中的函数，即由``manager_vcpu_hcpu_func``包装的``vcpu_irq_wfi_resume``。
+
+``vcpu_irq_wfi_resume(vcpu, ...)``会清除vcpu的wfi状态，并停止wfi超时事件，并将vcpu置于``Ready``状态，可以进行调度运行。
+
+>还有异步ipi方案
+
+``vmm_main.c``中为异步ipi初始化：
+
+```c
+#if defined(CONFIG_SMP)
+/* Initialize asynchronus inter-processor interrupts */
+vmm_init_printf("asynchronus inter-processor interrupts\n");
+ret = vmm_smp_async_ipi_init();
+if (ret) {
+	goto init_bootcpu_fail;
+}
+#endif
+
+
+static struct vmm_cpuhp_notify smp_async_ipi_cpuhp = {
+	.name = "SMP_ASYNC_IPI",
+	.state = VMM_CPUHP_STATE_SMP_ASYNC_IPI,
+	.startup = smp_async_ipi_startup,
+};
+
+int __init vmm_smp_async_ipi_init(void) {
+	/* Setup hotplug notifier */
+	return vmm_cpuhp_register(&smp_async_ipi_cpuhp, TRUE);
+}
+
+```
+
+其中
+
+```c
+int vmm_cpuhp_register(struct vmm_cpuhp_notify *cpuhp, bool invoke_startup) {
+	...
+	for_each_online_cpu(cpu) {
+		if (cpu == curr_cpu)
+			continue;
+		chps = &per_cpu(chpstate, cpu);
+		vmm_read_lock_lite(&chps->lock);
+		if (cpuhp->state <= chps->state) {
+			// 这里对每个cpu都执行一次cpuhp_register_sync，其中会执行cpuhp->statup，即async的startup
+			// 其中为每个cpu结构的ictlp->async_vcpu创建一个orphan_vcpu，用于执行ipi_main
+			vmm_smp_ipi_async_call(vmm_cpumask_of(cpu), 
+						cpuhp_register_sync, 
+						cpuhp, NULL, NULL);
+		}
+		vmm_read_unlock_lite(&chps->lock);
+	}
+}
+
+static void cpuhp_register_sync(void *arg1, void *arg2, void *arg3) {
+	u32 cpu = vmm_smp_processor_id();
+	struct vmm_cpuhp_notify *cpuhp = arg1;
+	struct cpuhp_state *chps = &per_cpu(chpstate, cpu);
+
+	vmm_read_lock_lite(&chps->lock);
+	// 这里的startup即smp_async_ipi_cpuhp的startup，即smp_async_ipi_startup
+	if (cpuhp->startup && (cpuhp->state <= chps->state))
+		cpuhp->startup(cpuhp, cpu);
+	vmm_read_unlock_lite(&chps->lock);
+}
+```
+
+``smp_async_ipi_startup``会为当前cpu创建一个orphan_vcpu专门执行``smp_ipi_main``。
+
+```c
+static int smp_async_ipi_startup(struct vmm_cpuhp_notify *cpuhp, u32 cpu) {
+	int rc = VMM_EFAIL;
+	char vcpu_name[VMM_FIELD_NAME_SIZE];
+	struct smp_ipi_ctrl *ictlp = &per_cpu(ictl, cpu);
+
+	/* Create IPI bottom-half VCPU. (Per Host CPU) */
+	vmm_snprintf(vcpu_name, sizeof(vcpu_name), "ipi/%d", cpu);
+	ictlp->async_vcpu = vmm_manager_vcpu_orphan_create(vcpu_name,
+						(virtual_addr_t)&smp_ipi_main,
+						IPI_VCPU_STACK_SZ,
+						IPI_VCPU_PRIORITY,
+						IPI_VCPU_TIMESLICE,
+						IPI_VCPU_DEADLINE,
+						IPI_VCPU_PERIODICITY,
+						vmm_cpumask_of(cpu));
+	if (!ictlp->async_vcpu) {
+		rc = VMM_EFAIL;
+		goto fail;
+	}
+
+	/* Kick IPI orphan VCPU */
+	if ((rc = vmm_manager_vcpu_kick(ictlp->async_vcpu))) {
+		goto fail_free_vcpu;
+	}
+
+	return VMM_OK;
+
+fail_free_vcpu:
+	vmm_manager_vcpu_orphan_destroy(ictlp->async_vcpu);
+fail:
+	return rc;
+}
+```
+
+``smp_ipi_main()``是一个类似生产者-消费者的处理结构。它不断尝试取出当前物理cpu队列中的ipi信息并执行
+
+```c
+static void smp_ipi_main(void) {
+	struct smp_ipi_call ipic;
+	struct smp_ipi_ctrl *ictlp = &this_cpu(ictl);
+
+	while (1) {
+		/* Wait for some IPI to be available */
+		vmm_completion_wait(&ictlp->async_avail);
+
+		/* Process async IPIs */
+		while (fifo_dequeue(ictlp->async_fifo, &ipic)) {
+			if (ipic.func) {
+				ipic.func(ipic.arg0, ipic.arg1, ipic.arg2);
+			}
+		}
+	}
+}
+```
+
+
+
+
+
+
+# 6. 外部中断
+
+以串口为例。
+
+xvisor专门分配了一个vcpu给xvisor控制台mterm。
+
+当键盘触发后，系统会收到物理外部中断，于是去读取物理plic的claim查看是哪个设备发送了中断。得知是串口后，便读取物理串口信息，并将其放入虚拟串口队列，并唤醒等待在这个队列上的vcpu。
+
+这个vcpu会不断读取串口队列，并将内容发送给虚拟串口对应的虚拟串口设备。虚拟设备经过处理后，调用虚拟plic向guest发起虚拟外部中断。
+
+guest收到中断后，查询虚拟plic的claim，查看是哪个设备发起中断。guest得知是虚拟串口设备后，访问虚拟设备来获取信息。
+
+在这种情况下，键盘输入被放入串口队列，并送给与控制台相绑定的模拟设备，进而送给绑定在控制台的guest。虽然多个guest都共享这个结构，但同一时间似乎只有一个guest能绑定控制台，类似于独占这个队列。
+
+
+>串口的输入约等于被独占，那么更复杂的设备呢？比如网卡等，要如何决定中断及其对应信息要发给哪个guest？多个guest如何复用这个物理网卡？
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
