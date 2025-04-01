@@ -20,7 +20,7 @@ share: "true"
 
 此问题在2022.04.28的某个提交被修复。
 
-![[xvisor.assets/binutil fix.png|xvisor.assets/binutil fix.png]]
+![binutil fix](https://image.chohee.top/image/image-20250401124112322-8da263.png)
 
 在编好更低版本的toolchain后尝试用其编译v0.3.1版本，基本还是跟着xvisor的``riscv64-qemu.txt``文档走。
 
@@ -152,7 +152,7 @@ QEMU: Terminated
 
 好像是中断号的问题，我直接在当前版本上修改了，修改后可以运行。
 
-![[xvisor.assets/patch.png|xvisor.assets/patch.png]]
+![patch](https://image.chohee.top/image/image-20250401124112322-016eca.png)
 
 
 
@@ -281,7 +281,7 @@ xvisor似乎对所有设备采用模拟操作？包括串口。在linux启动过
 
 xvisor的设计中，wfi被设置为不可在虚拟机中直接执行。
 
-当hstatus.VTW=1 and mstatus.TW=0时，在vs mode下执行wfi会触发虚拟指令异常。
+当hstatus.VTW=1 and mstatus.TW=0时，在vs mode下执行wfi时，若未在特定时间（取决于实现，可能为0）内完成，会触发虚拟指令异常。
 
 此时若vcpu执行wfi，会退出虚拟机。vmm便可标记此vcpu处于wfi状态，并将其置于不可运行状态并调度走。
 
@@ -346,6 +346,8 @@ for_each_cpu(c, dest) {
 若标记中的cpu不是当前物理cpu，则执行``smp_ipi_sync_submit``。
 
 其中会将ipi信息入队到目标物理cpu的队列中，并调用``arch_smp_ipi_trigger``，来引发目标物理cpu上的ipi：
+
+>同步ipi下，向其他核心发送ipi后，可能还需要在有限时间内，检测目标核心们的ipi队列是否为空（目标核心是否已经处理完所有ipi函数了），根据情况来返回是否超时。
 
 ```rust
 while (!fifo_enqueue(ictlp->sync_fifo, ipic, FALSE) && try) {
