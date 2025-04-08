@@ -17,6 +17,8 @@ make ARCH=riscv64 A=apps/hv HV=y SMP=2 LOG=debug MODE=debug debug
 clear && make ARCH=riscv64 A=apps/hv HV=y SMP=2 LOG=debug MODE=debug run
 ```
 
+https://github.com/MROS/hypervisor-blog
+
 # 1. 基础设施
 
 - [x] vsc debug
@@ -221,6 +223,7 @@ VmExitInfo::TimerInterruptEmulation => {
 
 这部分比我想的要复杂更多。一个关键困惑是，当时钟中断来临，系统还处在host运行时，不会进入arceos的irq_handler吗？
 
+>见后日谈
 
 
 
@@ -882,9 +885,9 @@ void flush_tlb_all(void)
 
 观察到一个现象：qemu-virt plic的claim/complete寄存器会在读取后自动清0，不知道是不是qemu的实现而已，手册中没有见到相关内容：
 
-![[_note_assets_/plic_test.png|_note_assets_/plic_test.png]]
+![plic_test](https://image.chohee.top/image/image-20240628153621242-7e7c77.png)
 
-![[_note_assets_/plic_test2.png|_note_assets_/plic_test2.png]]
+![plic_test2](https://image.chohee.top/image/image-20240628153621242-249062.png)
 
 
 不过这确实算有问题吗？不管这个0一样可以正常运行。
@@ -899,6 +902,22 @@ The PLIC can perform an interrupt claim by reading the claim/complete register, 
 
 
 
+
+
+
+
+
+
+# ?. 后日谈
+
+到做hypercraft重构的时期我才差不多完全明白了它的设计。
+
+做了以下两步操作，才让vm_exit完全在vmm进行处理。
+
+1. 关闭sstatus.sie
+2. 进入虚拟机前替换stvec为_guest_exit
+
+这样造成的效果是：当系统处于HS mode的vmm时，由于sstatus.sie是关闭的，因此它不会响应中断。当系统处于vm时，由于VS/VU mode特权级比HS mode低，因此sstatus.sie被视为永久开启，此时中断会被响应，并进入stvec = _guest_exit回到vmm中。
 
 
 
